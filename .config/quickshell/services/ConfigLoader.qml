@@ -22,6 +22,7 @@ Singleton {
     property bool firstLoad: true
     property bool preventNextLoad: false
     property var preventNextNotification: false
+    property bool firstFileError: true
 
     function loadConfig() {
         configFileView.reload()
@@ -113,7 +114,16 @@ Singleton {
         }
     }
 
-	FileView { 
+    Timer{
+        id: delayedFileView
+        interval: ConfigOptions.hacks.arbitraryRaceConditionDelay
+        running: false
+        onTriggered: {
+            configFileView.onFileChanged();
+        }
+    }
+
+	FileView {
         id: configFileView
         path: Qt.resolvedUrl(root.filePath)
         watchChanges: true
@@ -127,9 +137,16 @@ Singleton {
         }
         onLoadFailed: (error) => {
             if(error == FileViewError.FileNotFound) {
-                console.log("[ConfigLoader] File not found, creating new file.")
-                root.saveConfig()
-                Hyprland.dispatch(`exec notify-send "${qsTr("Shell configuration created")}" "${root.filePath}"`)
+                if(firstFileError){
+                    console.log("[ConfigLoader] File not found, trying again.")
+                    firstFileError = false
+                    delayedFileView.start()
+                } else {
+                    console.log("[ConfigLoader] File not found, creating new file.")
+                    firstFileError = true
+                    root.saveConfig()
+                    Hyprland.dispatch(`exec notify-send "${qsTr("Shell configuration created")}" "${root.filePath}"`)
+                }
             } else {
                 Hyprland.dispatch(`exec notify-send "${qsTr("Shell configuration failed to load")}" "${root.filePath}"`)
             }
