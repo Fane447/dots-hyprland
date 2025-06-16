@@ -82,7 +82,8 @@ Singleton {
 
     function saveConfig() {
         const plainConfig = ObjectUtils.toPlainObject(ConfigOptions)
-        Hyprland.dispatch(`exec echo '${StringUtils.shellSingleQuoteEscape(JSON.stringify(plainConfig, null, 2))}' > '${root.filePath}'`)
+        Hyprland.dispatch(`exec ( set -o noclobber; echo '${StringUtils.shellSingleQuoteEscape(JSON.stringify(plainConfig, null, 2))}' > '${root.filePath}';)`)
+        configFileView.onFileChanged()
     }
 
     function setConfigValueAndSave(nestedKey, value, preventNextNotification = true) {
@@ -113,7 +114,7 @@ Singleton {
         }
     }
 
-	FileView { 
+	FileView {
         id: configFileView
         path: Qt.resolvedUrl(root.filePath)
         watchChanges: true
