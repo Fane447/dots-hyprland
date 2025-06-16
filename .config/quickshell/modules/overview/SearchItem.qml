@@ -92,8 +92,17 @@ RippleButton {
 
     PointingHandInteraction {}
     onClicked: {
-        root.itemExecute()
+        root.launch(entry)
         Hyprland.dispatch("global quickshell:overviewClose")
+    }
+    function launch(entry): void {
+        launchProc.entry = entry;
+        launchProc.startDetached();
+    }
+    Process {
+        id: launchProc
+        property DesktopEntry entry
+        command: ["app2unit", "--", `${entry?.id}.desktop`]
     }
     Keys.onPressed: (event) => {
         if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
