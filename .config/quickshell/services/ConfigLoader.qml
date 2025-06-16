@@ -22,6 +22,7 @@ Singleton {
     property bool firstLoad: true
     property bool preventNextLoad: false
     property var preventNextNotification: false
+    property int fileFailedCount: 0
 
     function loadConfig() {
         configFileView.reload()
@@ -80,10 +81,17 @@ Singleton {
         obj[keys[keys.length - 1]] = convertedValue;
     }
 
-    function saveConfig() {
+    function saveConfig(overwrite = true) {
         const plainConfig = ObjectUtils.toPlainObject(ConfigOptions)
-        Hyprland.dispatch(`exec ( set -o noclobber; echo '${StringUtils.shellSingleQuoteEscape(JSON.stringify(plainConfig, null, 2))}' > '${root.filePath}';)`)
-        configFileView.onFileChanged()
+        if(overwrite){
+            Hyprland.dispatch(`exec echo '${StringUtils.shellSingleQuoteEscape(JSON.stringify(plainConfig, null, 2))}' > '${root.filePath}'`)
+        }
+        else{
+            Hyprland.dispatch(`exec ( set -o noclobber; echo '${StringUtils.shellSingleQuoteEscape(JSON.stringify(plainConfig, null, 2))}' > '${root.filePath}';)`)
+            if(fileFailedCount < 3){
+                configFileView.onFileChanged() //make sure to reload the file even if the save fails
+            }
+        }
     }
 
     function setConfigValueAndSave(nestedKey, value, preventNextNotification = true) {
@@ -121,6 +129,7 @@ Singleton {
         onFileChanged: {
             this.reload()
             delayedFileRead.start()
+            fileFailedCount = 0
         }
         onLoadedChanged: {
             const fileContent = configFileView.text()
@@ -129,7 +138,8 @@ Singleton {
         onLoadFailed: (error) => {
             if(error == FileViewError.FileNotFound) {
                 console.log("[ConfigLoader] File not found, creating new file.")
-                root.saveConfig()
+                fileFailedCount++
+                root.saveConfig(false)
                 Hyprland.dispatch(`exec notify-send "${qsTr("Shell configuration created")}" "${root.filePath}"`)
             } else {
                 Hyprland.dispatch(`exec notify-send "${qsTr("Shell configuration failed to load")}" "${root.filePath}"`)
